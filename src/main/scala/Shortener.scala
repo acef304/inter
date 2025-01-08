@@ -1,4 +1,4 @@
-import org.scalatest.funsuite.AsyncFunSuite
+import org.scalatest.Assertion
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
@@ -25,6 +25,7 @@ class Shortener {
 
 
 import org.scalatest.funsuite.AsyncFunSuite
+import org.scalatest.Succeeded
 
 class ShortenerTest extends AsyncFunSuite {
   implicit override def executionContext: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
@@ -42,19 +43,20 @@ class ShortenerTest extends AsyncFunSuite {
   test("Short link should be created only once") {
     val shortener = new Shortener
 
-    val futuresList = (1 to 10000).map {
-      _ =>
+    def checkNTimes(f: Int => Future[Assertion], count: Int = 10000): Future[Assertion] = {
+      Future
+        .sequence { (1 to count).map(f) }
+        .map(results => assert(results.forall(_ == Succeeded)))
+    }
+
+    checkNTimes { _ =>
       Future {
         val processedLinks = possibleLinks
           .map(shortener.getShortLink)
           .flatMap(shortener.getFullLink(_).toList)
-        possibleLinks == processedLinks
+        assert(possibleLinks.diff(processedLinks).isEmpty)
       }
     }
-
-    Future
-      .sequence(futuresList)
-      .map(checks => assert(!checks.contains(false)))
 
   }
 
